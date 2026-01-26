@@ -76,7 +76,7 @@ export async function runCyclingNewsAgent(daysBack: number): Promise<AgentResult
     }).join('\n');
 
     const geminiApiKey = process.env.GEMINI_API_KEY;
-    const geminiModelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+    const geminiModelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 
     if (!geminiApiKey) {
       throw new Error('GEMINI_API_KEY is missing');
