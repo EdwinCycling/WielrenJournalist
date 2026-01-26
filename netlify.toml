@@ -1,0 +1,15 @@
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  external_node_modules = ["@google/generative-ai", "@notionhq/client", "rss-parser", "date-fns"]
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[dev]
+  port = 3500
+  targetPort = 3501
+  command = "npm run dev"
+  autoLaunch = false
