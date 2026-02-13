@@ -108,7 +108,7 @@ De taal MOET Nederlands zijn.`;
 
     const callAI = async (model: string) => {
         log(`Cerebras aan het denken met model ${model}...`);
-        const completion = await client.chat.completions.create({
+        const completion: any = await client.chat.completions.create({
             messages: messages,
             model: model,
         });
