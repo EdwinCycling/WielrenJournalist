@@ -81,11 +81,11 @@ export async function runCyclingNewsAgent(daysBack: number): Promise<AgentResult
     }).join('\n');
 
     const cerebrasApiKey = process.env.CEREBRAS_API_KEY;
-    const primaryModel = process.env.CEREBRAS_MODEL || 'llama-3.3-70b';
+    const primaryModel = process.env.CEREBRAS_MODEL;
     const fallbackModel = process.env.CEREBRAS_MODEL_FALLBACK;
 
-    if (!cerebrasApiKey) {
-      throw new Error('CEREBRAS_API_KEY is missing');
+    if (!cerebrasApiKey || !primaryModel) {
+      throw new Error('CEREBRAS_API_KEY or CEREBRAS_MODEL is missing');
     }
 
     const client = new Cerebras({
