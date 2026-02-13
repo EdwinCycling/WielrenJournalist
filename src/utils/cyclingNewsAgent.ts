@@ -1,5 +1,5 @@
 import Parser from 'rss-parser';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Cerebras from '@cerebras/cerebras_cloud_sdk';
 import { Client } from '@notionhq/client';
 import { subDays, isAfter } from 'date-fns';
 
@@ -63,44 +63,75 @@ export async function runCyclingNewsAgent(daysBack: number): Promise<AgentResult
     });
 
     log(`Na filter: ${filteredItems.length} artikelen overgebleven.`);
+    
+    // DEBUG: Laat zien welke artikelen zijn gevonden
+    filteredItems.forEach((item, index) => {
+      log(`   [${index + 1}] ${item.title} (${item.isoDate || item.pubDate})`);
+    });
 
     if (filteredItems.length === 0) {
       log('Geen nieuws gevonden.');
       return { success: true, logs, content: 'Geen nieuws gevonden.' };
     }
 
-    // 3. AI Summary (Gemini)
-    log('Artikelen voorbereiden voor Gemini...');
+    // 3. AI Summary (Cerebras)
+    log('Artikelen voorbereiden voor Cerebras...');
     const articlesText = filteredItems.map(item => {
       return `Titel: ${item.title}\nDatum: ${item.isoDate || item.pubDate}\nSnippet: ${item.contentSnippet}\nLink: ${item.link}\n---`;
     }).join('\n');
 
-    const geminiApiKey = process.env.GEMINI_API_KEY;
-    const geminiModelName = process.env.GEMINI_MODEL;
+    const cerebrasApiKey = process.env.CEREBRAS_API_KEY;
+    const primaryModel = process.env.CEREBRAS_MODEL || 'llama-3.3-70b';
+    const fallbackModel = process.env.CEREBRAS_MODEL_FALLBACK;
 
-    if (!geminiApiKey) {
-      throw new Error('GEMINI_API_KEY is missing');
+    if (!cerebrasApiKey) {
+      throw new Error('CEREBRAS_API_KEY is missing');
     }
 
-    if (!geminiModelName) {
-      throw new Error('GEMINI_MODEL is missing');
-    }
-
-    const genAI = new GoogleGenerativeAI(geminiApiKey);
-    const model = genAI.getGenerativeModel({ model: geminiModelName });
+    const client = new Cerebras({
+      apiKey: cerebrasApiKey,
+    });
 
     const systemPrompt = `Je bent een gedegen wielrenjournalist, met kennis van alle wielrenkoersen en de geschiedenis van belangrijke wielrenners. 
-Maak een leesbaar verslag, beetje spannend, zonder bullets. Maak het 1 verslag zonder paragrafen en titels. Voeg artikel verhalen samen die door de tijd gaan over dezelfde koers. Geef ook het datum bereik aan in de titel zodat we weten over welke periode het nieuws gaat. maak het compleet en mis niks. 
+Maak een uitgebreid en diepgaand verslag. Combineer alle feiten tot een vloeiend verhaal, maar wees zeer gedetailleerd.
+Geef context bij de overwinningen, noem de teams, de omstandigheden (zoals weer of parcours) en de impact op het klassement of het seizoen.
+Maak het een meeslepend verhaal zonder bullets, paragrafen of titels. 
+Voeg artikel verhalen samen die door de tijd gaan over dezelfde koers. Geef ook het datum bereik aan in de titel zodat we weten over welke periode het nieuws gaat. 
+maak het compleet en mis absoluut geen enkel detail uit de bronteksten.
 Gebruik GEEN markdown opmaak (zoals vetgedrukte tekst met **sterretjes**). Schrijf alleen platte tekst.
 De taal MOET Nederlands zijn.`;
 
-    const prompt = `${systemPrompt}\n\nHier zijn de artikelen:\n${articlesText}`;
+    const messages = [
+      { role: 'system' as const, content: systemPrompt },
+      { role: 'user' as const, content: `Hier zijn de artikelen:\n${articlesText}` }
+    ];
 
-    log('Gemini aan het denken...');
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    generatedContent = response.text();
-    log('Gemini klaar met schrijven.');
+    const callAI = async (model: string) => {
+        log(`Cerebras aan het denken met model ${model}...`);
+        const completion = await client.chat.completions.create({
+            messages: messages,
+            model: model,
+        });
+        return completion.choices[0].message.content;
+    };
+
+    try {
+        generatedContent = await callAI(primaryModel) || '';
+    } catch (error: any) {
+        log(`Fout met primair model ${primaryModel}: ${error.message}`);
+        if (fallbackModel) {
+             log(`Schakelen naar fallback model ${fallbackModel}...`);
+             try {
+                 generatedContent = await callAI(fallbackModel) || '';
+             } catch (fallbackError: any) {
+                 throw new Error(`Fallback model faalde ook: ${fallbackError.message}`);
+             }
+        } else {
+            throw error;
+        }
+    }
+    
+    log('Cerebras klaar met schrijven.');
 
     // 4. Notion Storage
     log('Opslaan in Notion...');
@@ -112,12 +143,6 @@ De taal MOET Nederlands zijn.`;
     }
 
     const notion = new Client({ auth: notionApiKey });
-
-    // DEBUG: Check database properties before saving
-    log('Database structuur controleren...');
-    // const dbInfo = await notion.databases.retrieve({ database_id: notionDbId });
-    // const actualProps = Object.keys(dbInfo.properties);
-    // log(`Gevonden kolommen in Notion: ${actualProps.join(', ')}`);
 
     // Chunking content for Notion (max 2000 chars per block)
     const chunks = [];

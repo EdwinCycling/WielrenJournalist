@@ -1,7 +1,7 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
-  external_node_modules = ["@google/generative-ai", "@notionhq/client", "rss-parser", "date-fns"]
+  external_node_modules = ["@cerebras/cerebras_cloud_sdk", "@notionhq/client", "rss-parser", "date-fns"]
 
 [build]
   command = "npm run build"
