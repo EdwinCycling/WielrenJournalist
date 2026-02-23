@@ -21,7 +21,7 @@ const IGNORED_KEYWORDS = [
   'afvalkoers'
 ];
 
-export async function runCyclingNewsAgent(daysBack: number): Promise<AgentResult> {
+export async function runCyclingNewsAgent(daysBack: number = 7): Promise<AgentResult> {
   const logs: string[] = [];
   let generatedContent = '';
 

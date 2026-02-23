@@ -4,7 +4,8 @@ import 'dotenv/config';
 
 const myHandler = async () => {
   console.log('Scheduled function started...');
-  const result = await runCyclingNewsAgent(6); // Days back = 6
+  // Ophalen van nieuws van de laatste 7 dagen (standaard is 6, maar voor de zekerheid iets ruimer)
+  const result = await runCyclingNewsAgent(7);
   console.log('Scheduled function finished.');
   console.log(result.logs.join('\n'));
   
