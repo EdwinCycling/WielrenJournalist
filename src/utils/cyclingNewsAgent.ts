@@ -54,7 +54,13 @@ export async function runCyclingNewsAgent(daysBack: number = 7): Promise<AgentRe
       const snippet = (item.contentSnippet || item.content || '').toLowerCase();
       const fullText = `${title} ${snippet}`;
 
-      const hasIgnoredKeyword = IGNORED_KEYWORDS.some(keyword => fullText.includes(keyword));
+      // Check for exact word matches or words surrounded by non-word characters
+      const hasIgnoredKeyword = IGNORED_KEYWORDS.some(keyword => {
+        // Create regex that matches the keyword as a whole word
+        const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+        return regex.test(fullText);
+      });
+      
       if (hasIgnoredKeyword) {
         return false;
       }
